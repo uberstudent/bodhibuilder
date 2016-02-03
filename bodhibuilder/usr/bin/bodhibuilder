@@ -312,7 +312,7 @@ log_msg "$WORKDIR is on a $DIRTYPE filesystem"
     rm -f $WORKDIR/dummysys/etc/{hosts,hostname,mtab*,fstab}
     if [ ! -L $WORKDIR/dummysys/etc/resolv.conf ]; then
         rm -f $WORKDIR/dummysys/etc/resolv.conf
-    fi
+    fi   
     rm -f $WORKDIR/dummysys/etc/udev/rules.d/70-persistent*
     rm -f $WORKDIR/dummysys/etc/cups/ssl/{server.crt,server.key}
     rm -f $WORKDIR/dummysys/etc/ssh/*key*
@@ -347,6 +347,25 @@ log_msg "$WORKDIR is on a $DIRTYPE filesystem"
         for i in dpkg.log lastlog mail.log syslog auth.log daemon.log faillog lpr.log mail.warn user.log boot debug mail.err messages wtmp bootstrap.log dmesg kern.log mail.info; do
             touch $WORKDIR/dummysys/var/log/${i}
         done
+
+    log_msg "Purging pre-existing generated locale(s) from dummysys"
+    # Fixes http://forums.bodhilinux.com/index.php?/topic/10506-installation-crashes-by-some-languages-rc1/
+    # Ubiquity fails if the installation locale differs from the generated locale, so simply removing the
+    # generated locale confs fixes the issue.
+    if [ -e $WORKDIR/dummysys/etc/default/locale ]; then
+        rm -f $WORKDIR/dummysys/etc/default/locale
+    fi
+    if [ -e $WORKDIR/dummysys/var/lib/locales/supported.d/local ]; then
+        rm -f $WORKDIR/dummysys/var/lib/locales/supported.d/local
+    fi
+
+    log_msg "Cleaning locate database within dummysys"
+    # Blank the locale db because it can be a privacy issue, and can be
+    # rather large, and then regenerate it within the dummysys.
+    if [ -e $WORKDIR/dummysys/var/lib/mlocate/mlocate.db ]; then
+        rm -f $WORKDIR/dummysys/var/lib/mlocate/mlocate.db
+        updatedb -l 1 -o $WORKDIR/dummysys/var/lib/mlocate/mlocate.db
+    fi
 
         log_msg "Cleaning up passwd, group, shadow and gshadow files for the live system"
         grep '^[^:]*:[^:]*:[0-9]:' /etc/passwd > $WORKDIR/dummysys/etc/passwd
@@ -445,7 +464,6 @@ log_msg "$WORKDIR is on a $DIRTYPE filesystem"
     else
         log_msg "Copying your custom isolinux setup to the live system"
         cp /etc/bodhibuilder/customisolinux/* $WORKDIR/ISOTMP/isolinux/ &> /dev/null
-
     fi
 
     log_msg "Based on the ARCH of the system, setting the README.diskdefines file"
